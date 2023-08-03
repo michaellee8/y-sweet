@@ -1,11 +1,11 @@
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 import type { Awareness } from 'y-protocols/awareness'
-import { ClientToken } from '@y-sweet/sdk'
+import { ClientTokena } from '@y-sweet/sdk'
 
 export function createYjsProvider(
   doc: Y.Doc,
-  clientToken: ClientToken,
+  clientToken: ClientTokena,
   extraOptions: Partial<WebsocketParams> = {},
 ) {
   const params = clientToken.token ? { token: clientToken.token } : undefined

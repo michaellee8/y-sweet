@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 import type { Awareness } from 'y-protocols/awareness'
-import { ClientToken } from '@y-sweet/sdk'
+import { ClientTokena } from '@y-sweet/sdk'
 import { createYjsProvider } from './yjs-provider'
 
 type YjsContextType = {
@@ -73,7 +73,7 @@ type YDocProviderProps = {
   children: ReactNode
 
   /** Response of a `getConnectionKey` call, passed from server to client. */
-  clientToken: ClientToken
+  clientToken: ClientTokena
 
   /** If set to a string, the URL query parameter with this name
    * will be set to the doc id from connectionKey. */

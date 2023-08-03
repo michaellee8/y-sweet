@@ -2,7 +2,7 @@ export type DocCreationResult = {
   doc: string
 }
 
-export type ClientToken = {
+export type ClientTokena = {
   url: string
   doc: string
   token?: string
@@ -65,7 +65,7 @@ export class DocumentManager {
     return result.json()
   }
 
-  public async getOrCreateDoc(docId?: string): Promise<ClientToken> {
+  public async getOrCreateDoc(docId?: string): Promise<ClientTokena> {
     if (!docId) {
       let room = await this.createDoc()
       docId = room.doc
@@ -77,7 +77,7 @@ export class DocumentManager {
   public async getClientToken(
     docId: string | DocCreationResult,
     request: AuthDocRequest,
-  ): Promise<ClientToken> {
+  ): Promise<ClientTokena> {
     if (typeof docId !== 'string') {
       docId = docId.doc
     }
@@ -105,7 +105,7 @@ export type AuthDocRequest = {
 export async function getOrCreateDoc(
   docId?: string,
   options?: ServerToken | string,
-): Promise<ClientToken> {
+): Promise<ClientTokena> {
   const manager = new DocumentManager(options)
   return await manager.getOrCreateDoc(docId)
 }
@@ -114,7 +114,7 @@ export async function getClientToken(
   docId: string | DocCreationResult,
   request: AuthDocRequest,
   options?: ServerToken | string,
-): Promise<ClientToken> {
+): Promise<ClientTokena> {
   const manager = new DocumentManager(options)
   return await manager.getClientToken(docId, request)
 }
