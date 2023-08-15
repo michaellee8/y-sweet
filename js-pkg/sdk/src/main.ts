@@ -18,7 +18,7 @@ export type YSweetErrorPayload =
   | { code: 'ServerError'; status: number; message: string }
   | { code: 'NoAuthProvided' }
   | { code: 'InvalidAuthProvided' }
-  | { code: 'Unknown'; message: string }
+  | { code: 'UnknownError'; message: string }
 
 export class YSweetError extends Error {
   constructor(public cause: YSweetErrorPayload) {
@@ -27,17 +27,20 @@ export class YSweetError extends Error {
   }
 
   static getMessage(payload: YSweetErrorPayload): string {
+    let message
     if (payload.code === 'ServerRefused') {
-      return `Server at ${payload.address}:${payload.port} refused connection`
+      const portArg = payload.port ? ` --port ${payload.port}` : ''
+      message = `It looks like you are trying to connect to a local server, but one isn’t running. Run \`npx y-sweet serve${portArg}\` to start a local server.`
     } else if (payload.code === 'ServerError') {
-      return `Server responded with ${payload.status} ${payload.message}`
+      message = `Server responded with ${payload.status} ${payload.message}. Make sure this is really a y-sweet server.`
     } else if (payload.code === 'NoAuthProvided') {
-      return 'No auth provided'
+      message = 'The server expects an authorization header, but the request does not include one.'
     } else if (payload.code === 'InvalidAuthProvided') {
-      return 'Invalid auth provided'
+      message = 'The server token provided was not accepted by the y-sweet server.'
     } else {
-      return payload.message
+      message = payload.message
     }
+    return `${payload.code}: ${message}`
   }
 }
 
@@ -102,7 +105,7 @@ export class DocumentManager {
           throw new YSweetError({ code: 'NoAuthProvided' })
         }
       } else {
-        throw new YSweetError({ code: 'Unknown', message: error.toString() })
+        throw new YSweetError({ code: 'UnknownError', message: error.toString() })
       }
     }
 
