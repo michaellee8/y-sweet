@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'releases/**'
+      - 'release/**'
 
 jobs:
   push_to_registries:
