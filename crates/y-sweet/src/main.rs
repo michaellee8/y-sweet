@@ -2,6 +2,7 @@
 
 use crate::stores::filesystem::FileSystemStore;
 use anyhow::Result;
+use axum_server::tls_rustls::RustlsConfig;
 use clap::{Parser, Subcommand};
 use cli::{print_auth_message, print_server_url};
 use serde_json::json;
@@ -55,6 +56,15 @@ enum ServSubcommand {
 
         #[clap(long)]
         prod: bool,
+
+        #[clap(long, env = "Y_SWEET_USE_TLS")]
+        use_tls: bool,
+
+        #[clap(long, env = "Y_SWEET_TLS_CERT")]
+        tls_cert: Option<String>,
+
+        #[clap(long, env = "Y_SWEET_TLS_KEY")]
+        tls_key: Option<String>,
     },
 
     GenAuth {
@@ -146,6 +156,9 @@ async fn main() -> Result<()> {
             auth,
             url_prefix,
             prod,
+            use_tls,
+            tls_cert,
+            tls_key,
         } => {
             let auth = if let Some(auth) = auth {
                 Some(Authenticator::new(auth)?)
@@ -180,9 +193,21 @@ async fn main() -> Result<()> {
             )
             .await?;
 
-            let handle = tokio::spawn(async move {
-                server.serve(&addr).await.unwrap();
-            });
+            let tls_cert = tls_cert.to_owned();
+            let tls_key = tls_key.to_owned();
+            let handle = if *use_tls {
+                tokio::spawn(async move {
+                    let config = RustlsConfig::from_pem_file(
+                        tls_cert.unwrap_or_default(),
+                        tls_key.unwrap_or_default(),
+                    )
+                    .await
+                    .unwrap();
+                    server.serve_tls(&addr, &config).await.unwrap()
+                })
+            } else {
+                tokio::spawn(async move { server.serve(&addr).await.unwrap() })
+            };
 
             tracing::info!("Listening on ws://{}", addr);
 

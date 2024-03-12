@@ -4,11 +4,14 @@ use axum::{
         ws::{Message, WebSocket},
         Path, Query, State, WebSocketUpgrade,
     },
-    headers::{self, authorization::Bearer},
     http::StatusCode,
     response::Response,
     routing::{get, post},
-    Json, Router, TypedHeader,
+    Json, Router,
+};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization, Host},
+    TypedHeader,
 };
 use dashmap::{mapref::one::MappedRef, DashMap};
 use futures::{SinkExt, StreamExt};
@@ -32,6 +35,7 @@ use y_sweet_core::{
     store::Store,
     sync::awareness::Awareness,
 };
+use axum_server::tls_rustls::RustlsConfig;
 
 fn current_time_epoch_millis() -> u64 {
     let now = std::time::SystemTime::now();
@@ -151,10 +155,10 @@ impl Server {
 
     pub fn check_auth(
         &self,
-        header: Option<TypedHeader<headers::Authorization<Bearer>>>,
+        header: Option<TypedHeader<Authorization<Bearer>>>,
     ) -> Result<(), StatusCode> {
         if let Some(auth) = &self.authenticator {
-            if let Some(TypedHeader(headers::Authorization(bearer))) = header {
+            if let Some(TypedHeader(Authorization(bearer))) = header {
                 if let Ok(()) =
                     auth.verify_server_token(bearer.token(), current_time_epoch_millis())
                 {
@@ -177,7 +181,30 @@ impl Server {
             .route("/doc/:doc_id/auth", post(auth_doc))
             .with_state(server_state);
 
-        axum::Server::try_bind(addr)?
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|_| anyhow!("Failed to serve"))?;
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .map_err(|_| anyhow!("Failed to serve"))?;
+
+        Ok(())
+    }
+
+    pub async fn serve_tls(self, addr: &SocketAddr, tls_config: &RustlsConfig) -> Result<()> {
+        let server_state = Arc::new(self);
+
+        let app = Router::new()
+            .route("/check_store", get(check_store))
+            .route("/doc/ws/:doc_id", get(handle_socket_upgrade))
+            .route("/doc/new", post(new_doc))
+            .route("/doc/:doc_id/auth", post(auth_doc))
+            .with_state(server_state);
+
+        axum_server::bind_rustls(addr.to_owned(), tls_config.to_owned())
             .serve(app.into_make_service())
             .await
             .map_err(|_| anyhow!("Failed to serve"))?;
@@ -252,7 +279,7 @@ async fn handle_socket(socket: WebSocket, awareness: Arc<RwLock<Awareness>>) {
 }
 
 async fn check_store(
-    authorization: Option<TypedHeader<headers::Authorization<Bearer>>>,
+    authorization: Option<TypedHeader<Authorization<Bearer>>>,
     State(server_state): State<Arc<Server>>,
 ) -> Result<Json<Value>, StatusCode> {
     server_state.check_auth(authorization)?;
@@ -267,7 +294,7 @@ async fn check_store(
 }
 
 async fn new_doc(
-    authorization: Option<TypedHeader<headers::Authorization<Bearer>>>,
+    authorization: Option<TypedHeader<Authorization<Bearer>>>,
     State(server_state): State<Arc<Server>>,
     Json(body): Json<DocCreationRequest>,
 ) -> Result<Json<NewDocResponse>, StatusCode> {
@@ -298,8 +325,8 @@ async fn new_doc(
 }
 
 async fn auth_doc(
-    authorization: Option<TypedHeader<headers::Authorization<Bearer>>>,
-    TypedHeader(host): TypedHeader<headers::Host>,
+    authorization: Option<TypedHeader<Authorization<Bearer>>>,
+    TypedHeader(host): TypedHeader<Host>,
     State(server_state): State<Arc<Server>>,
     Path(doc_id): Path<String>,
     Json(_body): Json<AuthDocRequest>,
