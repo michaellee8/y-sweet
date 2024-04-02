@@ -348,7 +348,7 @@ async fn auth_doc(
         let mut url = url_prefix.clone();
         let scheme = if url.scheme() == "https" { "wss" } else { "ws" };
         url.set_scheme(scheme).unwrap();
-        url.join("/doc/ws").unwrap().to_string();
+        let url = url.join("/doc/ws").unwrap();
         url.to_string()
     } else {
         let host = header_map
