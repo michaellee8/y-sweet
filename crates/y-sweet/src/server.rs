@@ -4,15 +4,16 @@ use axum::{
         ws::{Message, WebSocket},
         Path, Query, State, WebSocketUpgrade,
     },
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::Response,
     routing::{get, post},
     Json, Router,
 };
 use axum_extra::{
-    headers::{authorization::Bearer, Authorization, Host},
+    headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use dashmap::{mapref::one::MappedRef, DashMap};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -35,7 +36,6 @@ use y_sweet_core::{
     store::Store,
     sync::awareness::Awareness,
 };
-use axum_server::tls_rustls::RustlsConfig;
 
 fn current_time_epoch_millis() -> u64 {
     let now = std::time::SystemTime::now();
@@ -326,7 +326,7 @@ async fn new_doc(
 
 async fn auth_doc(
     authorization: Option<TypedHeader<Authorization<Bearer>>>,
-    TypedHeader(host): TypedHeader<Host>,
+    header_map: HeaderMap,
     State(server_state): State<Arc<Server>>,
     Path(doc_id): Path<String>,
     Json(_body): Json<AuthDocRequest>,
@@ -351,6 +351,10 @@ async fn auth_doc(
         url.join("/doc/ws").unwrap().to_string();
         url.to_string()
     } else {
+        let host = header_map
+            .get("host")
+            .or(header_map.get("x-forwarded-host"));
+        let host = host.map_or("127.0.0.1", |v| v.to_str().unwrap_or("127.0.0.1"));
         format!("ws://{host}/doc/ws")
     };
 
